@@ -1,5 +1,12 @@
-export function attribute() {
+export function attribute(name) {
+    return attributeBuilder({ name });
+}
+export function booleanAttribute(name) {
+    return attributeBuilder({ name, bool: true });
+}
+function attributeBuilder(config = {}) {
     return function (proto, name, descriptor = {}) {
+        name = config.name || name;
         if (!proto.constructor.observedAttributes)
             proto.constructor.observedAttributes = [];
         proto.constructor.observedAttributes.push(name);
@@ -16,24 +23,38 @@ export function attribute() {
         const origSet = descriptor.set;
         descriptor.set = function (v) {
             if (v === null)
-                this.removeAttribute(name);
-            else
+                return this.removeAttribute(name); // remove 
+            if (config.bool) {
+                handleSetBoolAttribute(this, name, v);
+            }
+            else { // string
                 this.setAttribute(name, v);
+            }
             if (origSet) {
                 origSet.call(this, v);
             }
         };
         const origGet = descriptor.get;
         descriptor.get = function () {
-            if (origGet)
+            if (origGet) {
                 return origGet.apply(this);
-            else
-                return this.getAttribute(name);
+            }
+            else {
+                return config.bool ? this.hasAttribute(name) : this.getAttribute(name);
+            }
         };
         return descriptor;
     };
 }
-;
+function handleSetBoolAttribute(element, attributeName, value) {
+    if (value || value === "") { // set
+        value = value === true ? "" : value; // if true make empty string
+        element.setAttribute(attributeName, value);
+    }
+    else {
+        element.removeAttribute(attributeName);
+    }
+}
 export function element(name) {
     return function (clazz) {
         customElements.define(name, clazz);
